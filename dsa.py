@@ -281,3 +281,304 @@ arr = [4, 3, 6, 2, 1, 1]
 print(number_of_inversions(arr))  # Output: Number of inversions
 
 
+#More optimized version using BIT
+
+
+def second_largest(num):
+    return sorted(set(num))[-2] if len(set(num)) > 1 else None
+
+
+num = [1, 2, 4, 5, 7, 7, 8]
+print("Second Largest:", second_largest(num))
+
+
+
+def consiquit_num(nums):
+    maxi = 0
+    cont = 0
+    for i in nums:
+        if i == 1:
+            cont += 1
+            maxi = max(maxi,cont)
+            #print(maxi)
+        else:
+            cont = 0
+    return maxi
+
+
+
+nums = [1, 1, 1, 0, 0, 1, 1]
+
+def find_single(a):
+    ans = 0
+    for i in a:
+        ans =  ans ^ a[i]
+    return ans
+
+a=[1,1,2,3,3,4,4]
+print(consiquit_num(nums))
+print(find_single(a))
+
+def longest_subarray_with_sum_k(arr, k):
+    pre_sum_map = {}  # Dictionary to store first occurrences of prefix sums
+    sum_ = 0
+    max_len = 0
+
+    for i in range(len(arr)):
+        sum_ += arr[i]
+
+        # If the sum itself equals k, update max_len
+        if sum_ == k:
+            max_len = max(max_len, i + 1)
+
+        # Check if sum_ - k exists in the map
+        rem = sum_ - k
+        print(rem)
+        if rem in pre_sum_map:
+            length = i - pre_sum_map[rem]
+            #print(i)
+            #print(pre_sum_map[rem])
+            max_len = max(max_len, length)
+            #print(max_len)
+
+        # Store first occurrence of sum_
+        if sum_ not in pre_sum_map:
+            pre_sum_map[sum_] = i
+            print("__",pre_sum_map[sum_])
+
+    return max_len
+
+arr = [3, 1, 2, 5, 1]
+k = 8
+print(longest_subarray_with_sum_k(arr, k))  # Output: 3
+
+
+
+def sum_of(nums):
+    dict = {}
+    target = 6
+    for i in nums:
+        #print(i)
+        #num = i
+        needed = target - i
+        #print("___",needed)
+        if needed not in dict:
+            dict[nums] = i
+        else:
+            dict
+
+
+def twoSum(nums, target):
+    num_map = {}  # Dictionary to store numbers and their indices
+
+    for i, num in enumerate(nums):
+        #print(i)
+        #print("__",num)
+        more_needed = target - num  # Find the required number
+        print(more_needed)
+
+        if more_needed in num_map:  # If found in dictionary, return indices
+            return [num_map[more_needed], i]
+
+        num_map[num] = i  # Store the index of the current number
+
+    return [-1, -1]  # Return [-1, -1] if no solution is found
+
+
+
+nums = [2, 7, 11, 15]
+target = 9
+print(twoSum(nums,target))
+
+def sum_of(book,target):
+    book.sort()
+    left = 0
+    right = len(book)-1
+    while left < right:
+     sum = book[left] + book[right]
+     if sum == target:
+        return [book[left] , book[right]]
+     elif sum < target:
+        left +=1
+     else:
+        right -= 1
+
+
+target = 5
+book = [4, 1, 2, 3, 1]
+print(sum_of(book, target))
+
+def swap_flag(dutch_flag):
+    low = 0
+    mid = 0
+    high = len(dutch_flag) - 1
+    while mid <= high:
+        if dutch_flag[mid] == 0:
+            dutch_flag[low],dutch_flag[mid] = dutch_flag[mid],dutch_flag[low]
+            low += 1
+            mid += 1
+        elif dutch_flag[mid] == 1:
+            mid += 1
+        else:
+            dutch_flag[mid],dutch_flag[high] = dutch_flag[high],dutch_flag[mid]
+            high -= 1
+    return dutch_flag
+
+
+
+
+dutch_flag= [2, 0, 2, 1, 1, 0]
+print(swap_flag(dutch_flag))
+
+
+
+def trap_rain_water(heights):
+    if not heights:
+        return 0
+
+    n = len(heights)
+    left_max = [0] * n
+    right_max = [0] * n
+    water_trapped = 0
+
+    # Fill left_max array (highest bar from left)
+    left_max[0] = heights[0]
+    print(heights[0])
+    for i in range(1, n):
+        left_max[i] = max(left_max[i - 1], heights[i])
+
+    # Fill right_max array (highest bar from right)
+    right_max[n - 1] = heights[n - 1]
+    print(right_max[n - 1])
+    print(heights[n - 1])
+    for i in range(n - 2, -1, -1):
+        right_max[i] = max(right_max[i + 1], heights[i])
+
+    # Calculate water trapped
+    for i in range(n):
+        water_trapped += min(left_max[i], right_max[i]) - heights[i]
+
+    return water_trapped
+
+# Example usage
+heights = [0,1,0,2,1,0,1,3,2,1,2,1]
+print("Trapped Rain Water:", trap_rain_water(heights))  # Output: 6
+
+
+
+class BrowserHistory:
+    def __init__(self, homepage):
+        self.back_stack = []  # Stores backward history
+        self.forward_stack = []  # Stores forward history
+        self.current = homepage  # Current page
+
+    def visit(self, url):
+        """Visit a new URL, clearing the forward history."""
+        self.back_stack.append(self.current)  # Save current page
+        self.current = url  # Move to new page
+        self.forward_stack.clear()  # Clear forward history
+
+    def back(self, steps):
+        """Go back 'steps' times in history."""
+        while steps > 0 and self.back_stack:
+            self.forward_stack.append(self.current)  # Save current page
+            self.current = self.back_stack.pop()  # Move back
+            steps -= 1
+        return self.current
+
+    def forward(self, steps):
+        """Go forward 'steps' times in history."""
+        while steps > 0 and self.forward_stack:
+            self.back_stack.append(self.current)  # Save current page
+            self.current = self.forward_stack.pop()  # Move forward
+            steps -= 1
+        return self.current
+
+# Example usage
+browser = BrowserHistory("google.com")
+browser.visit("youtube.com")
+browser.visit("github.com")
+print(browser.back(1))  # Returns "youtube.com"
+print(browser.back(1))  # Returns "google.com"
+print(browser.forward(1))  # Returns "youtube.com"
+browser.visit("linkedin.com")  # Clears forward history
+print(browser.forward(1))  # Still returns "linkedin.com" as forward history was cleared
+
+
+
+
+def setZeroes(matrix):
+    n, m = len(matrix), len(matrix[0])
+    col0 = 1  # Flag to track if the first column should be zeroed
+
+    # Step 1: Mark rows and columns that should be zeroed using the first row and first column
+    for i in range(n):
+        if matrix[i][0] == 0:
+            col0 = 0  # First column should be zeroed
+        for j in range(1, m):
+            if matrix[i][j] == 0:
+                matrix[i][0] = 0  # Mark row
+                matrix[0][j] = 0  # Mark column
+
+    # Step 2: Update matrix based on markers (excluding first row & column)
+    for i in range(1, n):
+        for j in range(1, m):
+            if matrix[i][0] == 0 or matrix[0][j] == 0:
+                matrix[i][j] = 0
+
+    # Step 3: Handle the first row
+    if matrix[0][0] == 0:
+        for j in range(m):
+            matrix[0][j] = 0
+
+    # Step 4: Handle the first column
+    if col0 == 0:
+        for i in range(n):
+            matrix[i][0] = 0
+
+# Example usage:
+matrix = [
+    [1, 1, 1],
+    [1, 0, 1],
+    [1, 1, 1]
+]
+setZeroes(matrix)
+
+# Print the modified matrix
+for row in matrix:
+    print(row)
+
+
+
+
+
+
+def longest_subarray_with_sum_k(arr, k):
+    pre_sum_map = {}
+    sum_ = 0
+    max_len = 0
+
+    for i, num in enumerate(arr):
+        sum_ += num
+        print("sum_",sum_)
+
+        if sum_ == k:
+            max_len = i + 1
+
+        if (sum_ - k) in pre_sum_map:
+            max_len = max(max_len, i - pre_sum_map[sum_ - k])
+
+        if sum_ not in pre_sum_map:
+            pre_sum_map[sum_] = i
+
+    return max_len
+
+arr = [3, 1, 2, 5, 1]
+k = 8
+print(longest_subarray_with_sum_k(arr, k))  # Output: 3
+
+
+
+
+
+
