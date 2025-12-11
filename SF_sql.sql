@@ -375,6 +375,6 @@ start_date,
 end_date,
 price,
 item_class,
-item_category)
+item_category);
 
 I
