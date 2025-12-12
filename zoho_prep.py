@@ -10,3 +10,9 @@ def twoSum(nums, target):
 #3 Valid Anagram
 def isAnagram(s, t):
     return sorted(s) == sorted(t)
+
+
+#5 Top K Frequent Elements 
+from collections import Counter
+def topKFrequent(nums, k):
+    return [x for x,_ in Counter(nums).most_common(k)]
