@@ -11,3 +11,12 @@ def twoSum(nums, target):
 #3 Contains Duplicate
 def containsDuplicate(nums):
     return len(nums) != len(set(nums))
+
+
+#4 Group Anagrams
+from collections import defaultdict
+def groupAnagrams(strs):
+    mp = defaultdict(list)
+    for s in strs:
+        mp[''.join(sorted(s))].append(s)
+    return list(mp.values())
