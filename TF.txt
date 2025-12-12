@@ -1,0 +1,413 @@
+AWS log in :T!g3r@Sky#932Lemon$
+
+
+
+
+Infrastructure as a Code:
+
+. Infrastructure as code or laC enables users to
+create, provision, update and manage every
+aspect of their infrastructure using high level
+code
+. Developed with Go and first released in 2014
+. Offer HCL language to implement a simple and
+clean syntax
+
+
+
+variable "project_id" {}
+variable "region" {}
+variable "credentials_file" {}
+variable "source_bucket" {}
+variable "destination_bucket" {}
+
+project_id        = "your-gcp-project-id"
+region            = "us-central1"
+credentials_file  = "./key.json"
+source_bucket     = "pdf-upload-bucket"
+destination_bucket = "excel-output-bucket"
+
+key.json
+{
+  "type": "service_account",
+  "project_id": "your-gcp-project-id",
+  "private_key_id": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkq...\n-----END PRIVATE KEY-----\n",
+  "client_email": "your-service-account@your-project.iam.gserviceaccount.com",
+  "client_id": "123456789012345678901",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/your-service-account%40your-project.iam.gserviceaccount.com"
+}
+
+
+
+provider "google" {
+  credentials = file(var.credentials_file)
+  project     = var.project_id
+  region      = var.region
+}
+
+resource "google_storage_bucket" "source" {
+  name     = var.source_bucket
+  location = var.region
+}
+
+resource "google_storage_bucket" "destination" {
+  name     = var.destination_bucket
+  location = var.region
+}
+
+resource "google_compute_instance" "etl_vm" {
+  name         = "pdf-to-excel-vm"
+  machine_type = "e2-medium"
+  zone         = "${var.region}-a"
+
+  boot_disk {
+    initialize_params {
+      image = "ubuntu-2004-focal-v20240612"
+      size  = 20
+    }
+  }
+
+  network_interface {
+    network = "default"
+    access_config {}
+  }
+
+  metadata_startup_script = <<-EOF
+    sudo apt update
+    sudo apt install -y python3-pip unzip
+    pip3 install pdfplumber pandas openpyxl google-cloud-storage
+
+    # Download the code and execute it (mock)
+    echo "VM ready for ETL execution."
+  EOF
+}
+
+
+
+import pdfplumber
+import pandas as pd
+from google.cloud import storage
+import os
+
+# Init GCS
+client = storage.Client()
+source_bucket = client.bucket('pdf-upload-bucket')
+dest_bucket = client.bucket('excel-output-bucket')
+
+def download_pdf(pdf_filename):
+    blob = source_bucket.blob(pdf_filename)
+    blob.download_to_filename(pdf_filename)
+    print(f"Downloaded {pdf_filename} from GCS.")
+
+def convert_pdf_to_excel(pdf_filename, excel_filename):
+    with pdfplumber.open(pdf_filename) as pdf:
+        all_text = []
+        for page in pdf.pages:
+            table = page.extract_table()
+            if table:
+                all_text.extend(table)
+        df = pd.DataFrame(all_text[1:], columns=all_text[0])
+        df.to_excel(excel_filename, index=False)
+    print(f"Converted {pdf_filename} to {excel_filename}.")
+
+def upload_excel(excel_filename):
+    blob = dest_bucket.blob(excel_filename)
+    blob.upload_from_filename(excel_filename)
+    print(f"Uploaded {excel_filename} to GCS.")
+
+# Entry point
+if __name__ == "__main__":
+    pdf_file = "input.pdf"
+    excel_file = "output.xlsx"
+
+    download_pdf(pdf_file)
+    convert_pdf_to_excel(pdf_file, excel_file)
+    upload_excel(excel_file)
+
+
+terraform init
+terraform plan
+terraform apply
+
+
+gcloud compute scp python_script/pdf_to_excel.py pdf-to-excel-vm:~/
+gcloud compute ssh pdf-to-excel-vm
+python3 pdf_to_excel.py
+
+
+-----------------
+
+resource "aws_instance" "ec2_prod" {
+  ami                         = "ami-0b0af3577fe5e3532"
+  instance_type               = "t2.micro"
+  key_name                    = aws_key_pair.ssh.key_name
+  availability_zone           = "us-east-1a"
+  vpc_security_group_ids      = [aws_security_group.prov_fw.id]
+}
+
+resource "aws_key_pair" "ssh" {
+  key_name   = "prov_key"
+  public_key = file("terraform_prov.pub")
+}
+
+resource "aws_security_group" "prov_fw" {
+  name = "prov_fw"
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "null_resource" "prov_null" {
+  triggers = {
+    public_ip = aws_instance.ec2_prod.public_ip
+  }
+
+  connection {
+    type        = "ssh"
+    host        = aws_instance.ec2_prod.public_ip
+    user        = "ec2-user"
+    private_key = file("terraform_prov.pem")
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo yum -y update",
+      "sudo yum install -y httpd",
+      "sudo service httpd start",
+      "echo '<!doctype html><html><body><h1>Congrats !! You have successfully configured your remote exec provisioner</h1></body></html>' | sudo tee /var/www/html/index.html"
+    ]
+  }
+}
+
+______________________
+
+provider "aws" {
+  region = "us-east-1"  # change as needed
+}
+
+resource "aws_key_pair" "key" {
+  key_name   = "demo-key"
+  public_key = file("~/.ssh/id_rsa.pub")  # Make sure this file exists
+}
+
+resource "aws_security_group" "allow_http_ssh" {
+  name        = "allow_http_ssh"
+  description = "Allow HTTP and SSH traffic"
+
+  ingress {
+    description = "SSH"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_instance" "web" {
+  ami                         = "ami-0c55b159cbfafe1f0"  # Amazon Linux 2 AMI in us-east-1
+  instance_type               = "t2.micro"
+  key_name                    = aws_key_pair.key.key_name
+  vpc_security_group_ids      = [aws_security_group.allow_http_ssh.id]
+  associate_public_ip_address = true
+
+  user_data = <<-EOF
+              #!/bin/bash
+              yum update -y
+              yum install -y httpd
+              systemctl start httpd
+              systemctl enable httpd
+              echo "<h1>Hello from Terraform EC2</h1>" > /var/www/html/index.html
+              EOF
+
+  tags = {
+    Name = "Real-Time-WebServer"
+  }
+}
+
+output "public_ip" {
+  value = aws_instance.web.public_ip
+}
+
+
+_______________Variable_______________
+
+variable "project_id" {
+  type        = string
+  description = "GCP Project ID"
+}
+
+variable "region" {
+  type        = string
+  default     = "us-central1"
+}
+
+variable "buckets" {
+  description = "List of buckets to create"
+  type = list(object({
+    name       = string
+    location   = string
+    versioning = bool
+  }))
+  default = [
+    {
+      name       = "mame-bucket-one"
+      location   = "US"
+      versioning = true
+    },
+    {
+      name       = "mame-bucket-two"
+      location   = "US"
+      versioning = false
+    }
+  ]
+}
+
+
+provider "google" {
+  credentials = file("key.json")  # Your GCP service account JSON key
+  project     = var.project_id
+  region      = var.region
+}
+
+resource "google_storage_bucket" "mame_buckets" {
+  for_each = { for bucket in var.buckets : bucket.name => bucket }
+
+  name     = each.value.name
+  location = each.value.location
+
+  versioning {
+    enabled = each.value.versioning
+  }
+
+  labels = {
+    environment = "dev"
+    created_by  = "terraform"
+  }
+}
+
+project_id = "your-gcp-project-id"
+
+
+terraform init
+terraform plan
+terraform apply
+
+--------------
+
+--------------
+
+# Terraform for GCS + Compute Engine + Dataflow + IAM setup
+
+provider "google" {
+  project = var.project_id
+  region  = var.region
+  zone    = var.zone
+}
+
+##########################
+# Storage (GCS)
+##########################
+resource "google_storage_bucket" "default" {
+  name     = var.bucket_name
+  location = var.region
+  force_destroy = true
+}
+
+##########################
+# Compute Engine VM
+##########################
+resource "google_compute_instance" "default" {
+  name         = var.vm_name
+  machine_type = var.vm_type
+  zone         = var.zone
+
+  boot_disk {
+    initialize_params {
+      image = var.vm_image
+    }
+  }
+
+  network_interface {
+    network = "default"
+    access_config {}
+  }
+  service_account {
+    email  = google_service_account.default.email
+    scopes = ["cloud-platform"]
+  }
+}
+
+##########################
+# Dataflow Job
+##########################
+resource "google_dataflow_job" "default" {
+  name              = var.dataflow_job_name
+  template_gcs_path = var.dataflow_template_path
+  parameters        = var.dataflow_parameters
+  on_delete         = "cancel"
+  zone              = var.zone
+}
+
+##########################
+# IAM - Service Account + Binding
+##########################
+resource "google_service_account" "default" {
+  account_id   = var.sa_id
+  display_name = "Terraform SA"
+}
+
+resource "google_project_iam_member" "sa_project_access" {
+  project = var.project_id
+  role    = "roles/dataflow.worker"
+  member  = "serviceAccount:${google_service_account.default.email}"
+}
+
+resource "google_project_iam_member" "sa_storage_access" {
+  project = var.project_id
+  role    = "roles/storage.objectAdmin"
+  member  = "serviceAccount:${google_service_account.default.email}"
+}
+
+resource "google_project_iam_member" "sa_compute_access" {
+  project = var.project_id
+  role    = "roles/compute.admin"
+  member  = "serviceAccount:${google_service_account.default.email}"
+}
+
