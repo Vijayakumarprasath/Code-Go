@@ -6,3 +6,7 @@ def twoSum(nums, target):
         if target - n in mp:
             return [mp[target - n], i]
         mp[n] = i
+
+#3 Valid Anagram
+def isAnagram(s, t):
+    return sorted(s) == sorted(t)
